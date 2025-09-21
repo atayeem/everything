@@ -38,14 +38,9 @@ class Token:
     
     def __str__(self):
         return f"({self.type} pos={self.pos} len={self.len})"
-
-class TokenList:
-    def __init__(self, _data: str):
-        self.tokens = [Token(TokenType.RAW, 0, len(_data))]
-        self.ref = _data
     
-    def __str__(self):
-        return "\n".join([token.get_str(self.ref) for token in self.tokens])
+    def __repr__(self):
+        return self.__str__()
 
 def remove_comments(data: str) -> str:
     out = ""
@@ -134,69 +129,72 @@ def remove_comments(data: str) -> str:
 
     return out
 
-def init_tokens(data: str) -> TokenList:
-    return TokenList(data)
-
-# at this point, our data is guaranteed to be a single token.
 # strings or chars do not contain their end markers.
-def isolate_strings(data: TokenList) -> TokenList:
-    token_list = TokenList(data.ref)
-    token_list.tokens.pop()
+def isolate_strings_and_chars(tokens: list[Token], ref: str) -> list[Token]:
 
-    state = 1
+    out: list[Token] = []
+
     _pos = 0
-    _len = 0
 
-    # this is a subset of the comment-string state machine
-    for i, c in enumerate(data.ref):
-        match state:
-            # not in a comment
-            case 1:
-                if c == '\'':
-                    state = 6
-                    token_list.tokens.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
-                    _pos = i
-                elif c == '"':
+    for token in tokens:
+        if token.type != TokenType.RAW:
+            out.append(token)
+            continue
+
+        state = 1
+        _pos = token.pos
+
+        # this is a subset of the comment-string state machine
+        for i in range(token.pos, token.pos + token.len):
+            c = ref[i]
+            match state:
+                # not in a comment
+                case 1:
+                    if c == '\'':
+                        state = 6
+                        out.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
+                        _pos = i
+                    elif c == '"':
+                        state = 7
+                        out.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
+                        _pos = i
+                
+                # in a 'string'
+                case 6:
+                    if c == '\\':
+                        state = 9
+                    elif c == '\'':
+                        state = 1
+                        out.append(Token(TokenType.CHAR_LITERAL, _pos + 1, i - _pos - 1))
+                        _pos = i
+
+                # in a "string"
+                case 7:
+                    if c == '\\':
+                        state = 8
+                    elif c == '"':
+                        state = 1
+                        out.append(Token(TokenType.STR_LITERAL, _pos + 1, i - _pos - 1))
+                        _pos = i
+                
+                # backslashed in 'string', ignore function of following character
+                case 8:
                     state = 7
-                    token_list.tokens.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
-                    _pos = i
-            
-            # in a 'string'
-            case 6:
-                if c == '\\':
-                    state = 9
-                elif c == '\'':
-                    state = 1
-                    token_list.tokens.append(Token(TokenType.CHAR_LITERAL, _pos + 1, i - _pos - 1))
-                    _pos = i
+                
+                # backslashed in "string", ||
+                case 9:
+                    state = 6
 
-            # in a "string"
-            case 7:
-                if c == '\\':
-                    state = 8
-                elif c == '"':
-                    state = 1
-                    token_list.tokens.append(Token(TokenType.STR_LITERAL, _pos + 1, i - _pos - 1))
-                    _pos = i
-            
-            # backslashed in 'string', ignore function of following character
-            case 8:
-                state = 7
-            
-            # backslashed in "string", ||
-            case 9:
-                state = 6
+    out.append(Token(TokenType.RAW, _pos, len(ref) - _pos))
 
-    token_list.tokens.append(Token(TokenType.RAW, _pos, len(data.ref) - _pos))
-
-    return token_list
+    return out
 
 AZ = 'abcdefghijklmnopqrstuvwxyz'
 AZ = AZ + AZ.upper() + "_"
 AZ3 = AZ + '0123456789'
 
 # works in-place. I know it's not consistent, but whatever.
-def isolate_identypes(data: TokenList):
+def isolate_identypes(data):
     # here's the usual workflow, we remove the RAW section, then put it back if needed, or else break it up.
     # e.g.: [STR] [RAW] [STR] -> [STR] [STR] -> [STR] [IDENTYPE] [RAW] [STR]
 
@@ -228,20 +226,31 @@ def isolate_identypes(data: TokenList):
                     if c in AZ3:
                         continue
                     else:
+                        pass
+
+def create_empty_token_list(ref: str) -> list[Token]:
+    return [Token(TokenType.RAW, 0, len(ref))]
+
+def print_token_list(tokens: list[Token], ref: str):
+    for token in tokens:
+        print("="*80)
+        print(token)
+        print(ref[token.pos:token.pos + token.len])
 
 def main():
     file = "stage1.c"
 
     with open(file, "r") as f:
         # I call these spaces telomeres. They will get lost. 
-        data = "  " + f.read() + "  " 
+        ref = "  " + f.read() + "  " 
 
-    data = remove_comments(data)
-    tokens = init_tokens(data)
-    tokens = isolate_strings(tokens)
-    isolate_identypes(tokens)
+    ref = remove_comments(ref)
+    tokens = create_empty_token_list(ref)
+
+    tokens = isolate_strings_and_chars(tokens, ref)
+    # isolate_identypes(tokens)
     
-    print(tokens)
+    print_token_list(tokens, ref)
 
 if __name__ == "__main__":
     main()
