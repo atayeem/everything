@@ -152,12 +152,12 @@ def isolate_strings_and_chars(tokens: list[Token], ref: str) -> list[Token]:
                 case 1:
                     if c == '\'':
                         state = 6
-                        out.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
-                        _pos = i
+                        out.append(Token(TokenType.RAW, _pos, i - _pos))
+                        _pos = i + 1
                     elif c == '"':
                         state = 7
-                        out.append(Token(TokenType.RAW, _pos + 1, i - _pos - 1))
-                        _pos = i
+                        out.append(Token(TokenType.RAW, _pos, i - _pos))
+                        _pos = i + 1
                 
                 # in a 'string'
                 case 6:
@@ -165,8 +165,8 @@ def isolate_strings_and_chars(tokens: list[Token], ref: str) -> list[Token]:
                         state = 9
                     elif c == '\'':
                         state = 1
-                        out.append(Token(TokenType.CHAR_LITERAL, _pos + 1, i - _pos - 1))
-                        _pos = i
+                        out.append(Token(TokenType.CHAR_LITERAL, _pos, i - _pos))
+                        _pos = i + 1
 
                 # in a "string"
                 case 7:
@@ -174,8 +174,8 @@ def isolate_strings_and_chars(tokens: list[Token], ref: str) -> list[Token]:
                         state = 8
                     elif c == '"':
                         state = 1
-                        out.append(Token(TokenType.STR_LITERAL, _pos + 1, i - _pos - 1))
-                        _pos = i
+                        out.append(Token(TokenType.STR_LITERAL, _pos, i - _pos))
+                        _pos = i + 1
                 
                 # backslashed in 'string', ignore function of following character
                 case 8:
@@ -193,40 +193,42 @@ AZ = 'abcdefghijklmnopqrstuvwxyz'
 AZ = AZ + AZ.upper() + "_"
 AZ3 = AZ + '0123456789'
 
-# works in-place. I know it's not consistent, but whatever.
-def isolate_identypes(data):
-    # here's the usual workflow, we remove the RAW section, then put it back if needed, or else break it up.
-    # e.g.: [STR] [RAW] [STR] -> [STR] [STR] -> [STR] [IDENTYPE] [RAW] [STR]
+def isolate_identypes(tokens: list[Token], ref: str):
 
-    ref = data.ref
-    for i, token in enumerate(data.tokens):
+    out: list[Token] = []
+
+    for token in tokens:
         if token.type != TokenType.RAW:
+            out.append(token)
             continue
 
-        s = ref[token.pos:token.len]
-        begin = token.pos
-
         state = 0
+        _pos = token.pos
         
-        for c in s:
+        for i in range(token.pos, token.pos + token.len):
+            c = ref[i]
+
             match (state):
-                # we never go back to state 0, it just determines what the first thing is.
+                # initial state
                 case 0:
                     if c in AZ:
                         state = 1
                     else:
                         state = 2
-                    
+                
+                # we are inside an area that isn't an identype.
                 case 1:
                     if c not in AZ3:
-
                         state = 2
                 
+                # we are inside an area that is an identype.
                 case 2:
                     if c in AZ3:
                         continue
                     else:
-                        pass
+                        state = 1
+                        out.append(Token(TokenType.IDENTYPE, _pos, i - _pos))
+                        _pos = i + 1
 
 def create_empty_token_list(ref: str) -> list[Token]:
     return [Token(TokenType.RAW, 0, len(ref))]
