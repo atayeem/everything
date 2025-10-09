@@ -14,16 +14,61 @@ Notes for a dumb bunny:
 */
 
 #include "libasi.hpp"
+#include <algorithm>
 #include <iostream>
 
 #include <sndfile.h>
 #include <fftw3.h>
-#include <string.h>
 
-using namespace asi;
+#include <string.h>
+#include <unordered_map>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+// Completed
+static double* get_hanning_window(samples_t window_size) {
+    static std::unordered_map<samples_t, double*> windows;
+
+    auto it = windows.find(window_size);
+
+    if (it != windows.end()) {
+        return it->second;
+    } else {
+        double *ptr = (double*) std::calloc(window_size, sizeof(double));
+        if (!ptr)
+            return NULL;
+
+        for (int n = 0; n < window_size; n++)
+            ptr[n] = 0.5 * (1 - cos(2.0 * M_PI * n / (window_size - 1)));
+
+        windows[window_size] = ptr;
+        return windows[window_size];
+    }
+}
+
+// Completed
+static uint8_t magnitude_to_png(double val, double min_db = -80.0, double max_db = 0.0) {
+        double db = 20.0 * log10(val + 1e-6);
+
+        // Clip to [min_db, max_db]
+        db = std::clamp(db, min_db, max_db);
+
+        // Normalize to 0..1
+        double normalized = (db - min_db) / (max_db - min_db);
+
+        // Convert to 0..255
+        return static_cast<uint8_t>(normalized * 255.0 + 0.5);
+}
 
 // Converts `Audiodata` to `Spectrodata`.
 // Fails on allocation failure, and on fftw failure.
+
+namespace asi {
+
 std::optional<Spectrodata> audio_to_spectro(Audiodata audio, samples_t window, samples_t step) 
 {
     // 1. Prepare the result container.
@@ -55,9 +100,10 @@ std::optional<Spectrodata> audio_to_spectro(Audiodata audio, samples_t window, s
 
     samples_t offset = 0;
     bool running = true;
+    auto han = get_hanning_window(window);
 
     // 4. Iterate over all the data. If a length of `window` past the offset would overshoot, truncate the window,
-    //    and pad the buffer with zeroes. Keep copying the data to the back of the output.
+    //    and pad the buffer with zeroes. Window the data. Execute. Keep copying the data to the back of the output.
     while (running) {
         if (offset + window > audio.data.size()) {
             running = false;
@@ -67,6 +113,10 @@ std::optional<Spectrodata> audio_to_spectro(Audiodata audio, samples_t window, s
             memcpy(input_buffer, audio.data.data() + offset, sizeof(double) * tail_size);
         } else {
             memcpy(input_buffer, audio.data.data() + offset, sizeof(double) * window);
+        }
+
+        for (samples_t i = 0; i < window; i++) {
+            input_buffer[i] = input_buffer[i] * han[i];
         }
 
         fftw_execute(p);
@@ -86,9 +136,26 @@ std::optional<Spectrodata> audio_to_spectro(Audiodata audio, samples_t window, s
 }
 
 Audiodata spectro_to_audio(Spectrodata in, samples_t sample_rate);
-Imagedata_MONO spectro_to_image(Spectrodata in);
+
+Imagedata_MONO spectro_to_image(Spectrodata in) {
+    Imagedata_MONO out;
+    out.data.resize(in.data.size());
+
+    for (size_t i = 0; i < in.data.size(); i++) {
+        auto re = in.data[i].real();
+        auto im = in.data[i].imag();
+
+        out.data[i] = magnitude_to_png(sqrt(re*re + im*im) / in.window, -60.0, -10.0);
+    }
+
+    out.height = in.window;
+    out.width = in.data.size() / in.window;
+    return out;
+}
+
 Spectrodata image_to_spectro(Imagedata_MONO in);
 
+// Completed
 int audio_probe_channels(std::string fname)
 {
     SF_INFO sfinfo{};
@@ -105,6 +172,7 @@ int audio_probe_channels(std::string fname)
     return channels;
 }
 
+// Completed
 std::optional<Audiodata> audio_read_mono(std::string fname)
 {
     SF_INFO sfinfo{};
@@ -130,6 +198,7 @@ std::optional<Audiodata> audio_read_mono(std::string fname)
     return audio;
 }
 
+// Completed
 std::optional<Audiodata_STEREO> audio_read_stereo(std::string fname)
 {
     SF_INFO sfinfo{};
@@ -181,5 +250,15 @@ int audio_write_stereo(std::string fname, Audiodata left, Audiodata right);
 
 int spectro_write(std::string fname, Spectrodata spectro);
 
-int image_write_mono(std::string fname, Imagedata_MONO image);
-int image_write_rgba(std::string fname, Imagedata_RGBA image);
+// Completed
+int image_write_mono(std::string fname, Imagedata_MONO image) {
+    std::cout << "stbi_write_png(" << image.width << ", " << image.height << ", " << 1 << ", " << (void*) image.data.data() << ", " << image.width << ");" << std::endl;
+    return stbi_write_png(fname.c_str(), image.width, image.height, 1, image.data.data(), image.width);
+}
+
+// Completed
+int image_write_rgba(std::string fname, Imagedata_RGBA image) {
+    return stbi_write_png(fname.c_str(), image.width, image.height, 4, image.data.data(), image.width * 4);
+}
+
+} // namespace asi

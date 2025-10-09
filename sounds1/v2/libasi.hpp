@@ -40,7 +40,7 @@ namespace asi {
 
     // Conversion of the 3 basic types
     // Imagedata_MONO <=> Spectrodata <=> Audiodata
-    Spectrodata audio_to_spectro(Audiodata in, samples_t window, samples_t step);
+    std::optional<Spectrodata> audio_to_spectro(Audiodata in, samples_t window, samples_t step);
     Audiodata spectro_to_audio(Spectrodata in, samples_t sample_rate);
     Imagedata_MONO spectro_to_image(Spectrodata in);
     Spectrodata image_to_spectro(Imagedata_MONO in);
