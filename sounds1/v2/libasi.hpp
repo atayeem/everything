@@ -24,6 +24,12 @@ namespace asi {
         std::vector<std::complex<double>> data;
         samples_t window;
         samples_t step;
+
+        // Used to make Audiodata -> Spectrodata reversible.
+        samples_t sample_rate;
+        samples_t original_length;
+
+        size_t n_windows;
     };
 
     struct Imagedata_MONO {
@@ -40,10 +46,10 @@ namespace asi {
 
     // Conversion of the 3 basic types
     // Imagedata_MONO <=> Spectrodata <=> Audiodata
-    std::optional<Spectrodata> audio_to_spectro(Audiodata in, samples_t window, samples_t step);
-    Audiodata spectro_to_audio(Spectrodata in, samples_t sample_rate);
-    Imagedata_MONO spectro_to_image(Spectrodata in);
-    Spectrodata image_to_spectro(Imagedata_MONO in);
+    std::optional<Spectrodata> audio_to_spectro(const Audiodata& in, samples_t window, samples_t step);
+    std::optional<Audiodata> spectro_to_audio(const Spectrodata& in);
+    Imagedata_MONO spectro_to_image(const Spectrodata& in);
+    Spectrodata image_to_spectro(const Imagedata_MONO& in);
 
     // Read operations
     int audio_probe_channels(std::string fname);
@@ -57,12 +63,12 @@ namespace asi {
     std::optional<Imagedata_RGBA> image_read_rgba(std::string fname);
 
     // Write operations
-    int audio_write_mono(std::string fname, Audiodata audio);
-    int audio_write_stereo(std::string fname, Audiodata_STEREO audio);
-    int audio_write_stereo(std::string fname, Audiodata left, Audiodata right);
+    int audio_write_mono(std::string fname, const Audiodata& audio);
+    int audio_write_stereo(std::string fname, const Audiodata_STEREO& audio);
+    int audio_write_stereo(std::string fname, const Audiodata& left, const Audiodata& right);
 
-    int spectro_write(std::string fname, Spectrodata spectro);
+    int spectro_write(std::string fname, const Spectrodata& spectro);
 
-    int image_write_mono(std::string fname, Imagedata_MONO image);
-    int image_write_rgba(std::string fname, Imagedata_RGBA image);
+    int image_write_mono(std::string fname, const Imagedata_MONO& image);
+    int image_write_rgba(std::string fname, const Imagedata_RGBA& image);
 }
