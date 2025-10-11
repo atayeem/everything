@@ -270,6 +270,8 @@ std::optional<Audiodata> audio_read_mono(std::string fname)
 
     if (sfinfo.channels != 1) {
         std::cerr << fname << " is not a mono audio file.\n";
+        
+        sf_close(sndfile);
         return std::nullopt;
     }
 
@@ -278,6 +280,7 @@ std::optional<Audiodata> audio_read_mono(std::string fname)
     (void) sf_readf_double(sndfile, audio.data.data(), sfinfo.frames);
     audio.sample_rate = sfinfo.samplerate;
 
+    sf_close(sndfile);
     return audio;
 }
 
@@ -316,7 +319,7 @@ std::optional<Audiodata_STEREO> audio_read_stereo(std::string fname)
         left.data[i] = buffer[2*i];
         right.data[i] = buffer[2*i + 1];
     }
-    
+
     sf_close(sndfile);
     return Audiodata_STEREO{left, right};
 }
