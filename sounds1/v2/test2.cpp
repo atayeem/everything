@@ -2,6 +2,7 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
+
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " [audio file] [audio file]\n";
         return -1;

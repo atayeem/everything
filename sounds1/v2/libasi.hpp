@@ -29,6 +29,7 @@ namespace asi {
         samples_t sample_rate;
         samples_t original_length;
 
+        // Used to facilitate Spectrodata -> Imagedata_MONO
         size_t n_windows;
     };
 
@@ -38,10 +39,22 @@ namespace asi {
         size_t height;
     };
 
+    struct Imagedata_MONOA {
+        Imagedata_MONO v;
+        Imagedata_MONO a;
+    };
+
+    struct Imagedata_RGB {
+        Imagedata_MONO r;
+        Imagedata_MONO g;
+        Imagedata_MONO b;
+    };
+
     struct Imagedata_RGBA {
-        std::vector<uint32_t> data;
-        size_t width;
-        size_t height;
+        Imagedata_MONO r;
+        Imagedata_MONO g;
+        Imagedata_MONO b;
+        Imagedata_MONO a;
     };
 
     // Conversion of the 3 basic types
@@ -60,6 +73,8 @@ namespace asi {
 
     int image_probe_channels(std::string fname);
     std::optional<Imagedata_MONO> image_read_mono(std::string fname);
+    std::optional<Imagedata_MONOA> image_read_monoa(std::string fname);
+    std::optional<Imagedata_RGB> image_read_rgb(std::string fname);
     std::optional<Imagedata_RGBA> image_read_rgba(std::string fname);
 
     // Write operations
@@ -70,5 +85,7 @@ namespace asi {
     int spectro_write(std::string fname, const Spectrodata& spectro);
 
     int image_write_mono(std::string fname, const Imagedata_MONO& image);
+    int image_write_monoa(std::string fname, const Imagedata_MONOA& image);
+    int image_write_rgb(std::string fname, const Imagedata_RGB& image);
     int image_write_rgba(std::string fname, const Imagedata_RGBA& image);
 }

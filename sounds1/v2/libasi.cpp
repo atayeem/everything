@@ -28,6 +28,7 @@ Notes for a dumb bunny:
 #include <string.h>
 #include <unordered_map>
 
+#define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -145,6 +146,7 @@ std::optional<Spectrodata> audio_to_spectro(const Audiodata& audio, samples_t wi
     return spectro;
 }
 
+// Completed
 std::optional<Audiodata> spectro_to_audio(const Spectrodata& in) {
     // Make no guarantee that the size of the spectrogram is divisible by its window size.
 
@@ -326,11 +328,136 @@ std::optional<Audiodata_STEREO> audio_read_stereo(std::string fname)
 
 std::optional<Spectrodata> spectro_read(std::string fname);
 
-int image_probe_channels(std::string fname);
-std::optional<Imagedata_MONO> image_read_mono(std::string fname);
-std::optional<Imagedata_RGBA> image_read_rgba(std::string fname);
+// Completed
+int image_probe_channels(std::string fname) {
+    int x, y, comp;
 
-// Write operations
+    if (!stbi_info(fname.c_str(), &x, &y, &comp)) {
+        std::cerr << "image_probe_channels: failed to get information on image '" << fname << "'\n";
+        return 0;
+
+    } else {
+        return comp;
+    }
+}
+
+// Completed
+std::optional<Imagedata_MONO> image_read_mono(std::string fname) {
+    if (image_probe_channels(fname) != 1) {
+        std::cerr << "image_read_mono: image '" << fname << "' does not have 1 channel.\n";
+        return std::nullopt;
+    }
+
+    int x, y, comp;
+    unsigned char *data = stbi_load(fname.c_str(), &x, &y, &comp, 0);
+
+    if (!data) {
+        std::cerr << "image_read_mono: failed to read image '" << fname << "': " << stbi_failure_reason() << "\n";
+        return std::nullopt;
+    }
+
+    Imagedata_MONO out;
+    out.width = x;
+    out.height = y;
+    out.data.resize(x * y);
+
+    std::copy_n(data, x * y, out.data);
+
+    stbi_image_free(data);
+    return out;
+}
+
+// Completed
+std::optional<Imagedata_MONOA> image_read_monoa(std::string fname) {
+    if (image_probe_channels(fname) != 2) {
+        std::cerr << "image_read_monoa: image '" << fname << "' does not have 2 channels.\n";
+        return std::nullopt;
+    }
+
+    int x, y, comp;
+    unsigned char *data = stbi_load(fname.c_str(), &x, &y, &comp, 0);
+
+    if (!data) {
+        std::cerr << "image_read_monoa: failed to read image '" << fname << "': " << stbi_failure_reason() << "\n";
+        return std::nullopt;
+    }
+
+    Imagedata_MONOA out;
+
+    out.v.width = out.a.width = x;
+    out.v.height = out.a.height = y;
+
+    for (size_t i = 0; i < x * y; i++) {
+        out.v.data[i] = data[2*i];
+        out.a.data[i] = data[2*i + 1];
+    }
+
+    stbi_image_free(data);
+    return out;
+}
+
+// Completed
+std::optional<Imagedata_RGB> image_read_rgb(std::string fname) {
+    if (image_probe_channels(fname) != 3) {
+        std::cerr << "image_read_rgb: image '" << fname << "' does not have 3 channels.\n";
+        return std::nullopt;
+    }
+
+    int x, y, comp;
+    unsigned char *data = stbi_load(fname.c_str(), &x, &y, &comp, 0);
+
+    if (!data) {
+        std::cerr << "image_read_rgb: failed to read image '" << fname << "': " << stbi_failure_reason() << "\n";
+        return std::nullopt;
+    }
+
+    Imagedata_RGB out;
+
+    out.r.width = out.g.width = out.b.width = x;
+    out.r.height = out.g.height = out.b.height = y;
+
+    for (size_t i = 0; i < x * y; i++) {
+        out.r.data[i] = data[3*i];
+        out.g.data[i] = data[3*i + 1];
+        out.b.data[i] = data[3*i + 2];
+    }
+
+    stbi_image_free(data);
+    return out;
+}
+
+// Completed
+std::optional<Imagedata_RGBA> image_read_rgba(std::string fname) {
+    if (image_probe_channels(fname) != 4) {
+        std::cerr << "image_read_rgba: image '" << fname << "' does not have 4 channels.\n";
+        return std::nullopt;
+    }
+
+    int x, y, comp;
+    unsigned char *data = stbi_load(fname.c_str(), &x, &y, &comp, 0);
+
+    if (!data) {
+        std::cerr << "image_read_rgba: failed to read image '" << fname << "': " << stbi_failure_reason() << "\n";
+        return std::nullopt;
+    }
+
+    Imagedata_RGBA out;
+
+    out.r.width = out.g.width = out.b.width = out.a.width = x;
+    out.r.height = out.g.height = out.b.height = out.a.height = y;
+
+    for (size_t i = 0; i < x * y; i++) {
+        out.r.data[i] = data[4*i];
+        out.g.data[i] = data[4*i + 1];
+        out.b.data[i] = data[4*i + 2];
+        out.a.data[i] = data[4*i + 3];
+    }
+
+    stbi_image_free(data);
+    return out;
+}
+
+// Completed
 int audio_write_mono(std::string fname, const Audiodata& audio) {
     SF_INFO sfinfo = {
         .samplerate=static_cast<int>(audio.sample_rate), 
@@ -342,13 +469,13 @@ int audio_write_mono(std::string fname, const Audiodata& audio) {
     SNDFILE* sndfile = sf_open(fname.c_str(), SFM_WRITE, &sfinfo);
 
     if (!sndfile) {
-        std::cerr << "audio_write_mono: failed to open audio file '" << fname << "'\n";
+        std::cerr << "audio_write_mono: failed to open audio file '" << fname << "': " << sf_strerror(sndfile) << "\n";
         return 0;
     }
 
     sf_count_t written = sf_writef_double(sndfile, audio.data.data(), audio.data.size());
     if (written < audio.data.size()) {
-        std::cerr << "audio_write_mono: couldn't write all samples to output file '" << fname << "'\n";
+        std::cerr << "audio_write_mono: couldn't write all samples to output file '" << fname << "': " << sf_strerror(sndfile) << "\n";
         sf_close(sndfile);
         return 0;
     }
@@ -357,8 +484,58 @@ int audio_write_mono(std::string fname, const Audiodata& audio) {
     return 1;
 }
 
-int audio_write_stereo(std::string fname, const Audiodata_STEREO& audio);
-int audio_write_stereo(std::string fname, const Audiodata& left, const Audiodata& right);
+// Completed
+int audio_write_stereo(std::string fname, const Audiodata_STEREO& audio) {
+    return audio_write_stereo(fname, audio.left, audio.right);
+}
+
+// Completed
+int audio_write_stereo(std::string fname, const Audiodata& left, const Audiodata& right) {
+
+    if (left.sample_rate != right.sample_rate) {
+        std::cerr << "audio_write_stereo: left and right channels have different sample rates. This is unsupported.\n";
+        return 0;
+    }
+
+    SF_INFO sfinfo = {
+        .samplerate=static_cast<int>(left.sample_rate), 
+        .channels=2, 
+        .format=SF_FORMAT_WAV | SF_FORMAT_PCM_16, 
+        .seekable=true
+    };
+
+    SNDFILE* sndfile = sf_open(fname.c_str(), SFM_WRITE, &sfinfo);
+
+    if (!sndfile) {
+        std::cerr << "audio_write_mono: failed to open audio file '" << fname << "'\n";
+        return 0;
+    }
+
+    // If one audio is short, the short one will be padded with zeroes.
+
+    samples_t left_size  = left.data.size();
+    samples_t right_size = right.data.size();
+
+    samples_t long_size = std::max(left_size, right_size);
+
+    std::vector<double> data_to_write(2 * long_size);
+
+    for (samples_t i = 0; i < long_size; i++) {
+        data_to_write[2*i]     = (i < left_size)  ? left.data[i]  : 0.0;
+        data_to_write[2*i + 1] = (i < right_size) ? right.data[i] : 0.0;
+    }
+
+    sf_count_t written = sf_writef_double(sndfile, data_to_write.data(), long_size);
+
+    if (written < long_size) {
+        std::cerr << "audio_write_stereo: couldn't write all samples to output file '" << fname << "'\n";
+        sf_close(sndfile);
+        return 0;
+    }
+
+    sf_close(sndfile);
+    return 1;
+}
 
 int spectro_write(std::string fname, Spectrodata spectro);
 
@@ -368,8 +545,54 @@ int image_write_mono(std::string fname, const Imagedata_MONO& image) {
 }
 
 // Completed
+int image_write_monoa(std::string fname, const Imagedata_MONOA& image) {
+    auto value = image.v;
+    auto alpha = image.a;
+
+    std::vector<uint8_t> data_to_write(value.height * value.width * 2);
+
+    for (size_t i = 0; i < value.height * value.width; i++) {
+        data_to_write[2*i] = value.data[i];
+        data_to_write[2*i + 1] = alpha.data[i];
+    }
+
+    return stbi_write_png(fname.c_str(), value.width, value.height, 2, data_to_write.data(), 2 * value.width);
+}
+
+// Completed
+int image_write_rgb(std::string fname, const Imagedata_RGB& image) {
+    auto r = image.r;
+    auto g = image.g;
+    auto b = image.b;
+
+    std::vector<uint8_t> data_to_write(r.height * r.width * 3);
+
+    for (size_t i = 0; i < r.height * r.width; i++) {
+        data_to_write[3*i] = r.data[i];
+        data_to_write[3*i + 1] = g.data[i];
+        data_to_write[3*i + 2] = b.data[i];
+    }
+
+    return stbi_write_png(fname.c_str(), r.width, r.height, 3, data_to_write.data(), 3 * r.width);
+}
+
+// Completed
 int image_write_rgba(std::string fname, const Imagedata_RGBA& image) {
-    return stbi_write_png(fname.c_str(), image.width, image.height, 4, image.data.data(), image.width * 4);
+    auto r = image.r;
+    auto g = image.g;
+    auto b = image.b;
+    auto a = image.a;
+
+    std::vector<uint8_t> data_to_write(r.height * r.width * 4);
+
+    for (size_t i = 0; i < r.height * r.width; i++) {
+        data_to_write[4*i] = r.data[i];
+        data_to_write[4*i + 1] = g.data[i];
+        data_to_write[4*i + 2] = b.data[i];
+        data_to_write[4*i + 3] = b.data[i];
+    }
+
+    return stbi_write_png(fname.c_str(), r.width, r.height, 4, data_to_write.data(), 4 * r.width);
 }
 
 } // namespace asi
