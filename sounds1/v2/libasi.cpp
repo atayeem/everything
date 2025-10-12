@@ -221,20 +221,31 @@ std::optional<Audiodata> spectro_to_audio(const Spectrodata& in) {
     return audio;
 }
 
-// Completed
+// Spectrograms are column-major while images are row-major.
+// This needs to fix that.
 Imagedata_MONO spectro_to_image(const Spectrodata& in) {
     Imagedata_MONO out;
+    // n = 1000
+    // 1000 duration x 501 bins = 501000
     out.data.resize(in.data.size());
 
-    for (size_t i = 0; i < in.data.size(); i++) {
-        auto re = in.data[i].real();
-        auto im = in.data[i].imag();
+    auto bin_size = in.window / 2 + 1;
+    auto n_bins = in.n_windows;
 
-        out.data[i] = magnitude_to_png(sqrt(re*re + im*im) / in.window, -60.0, -10.0);
+    assert(bin_size * n_bins == in.data.size());
+
+    for (size_t row = 0; row < n_bins; row++) {
+        for (size_t col = 0; col < bin_size; col++) {
+            auto re = in.data[row*bin_size + col].real();
+            auto im = in.data[row*bin_size + col].imag();
+
+            out.data[row + col*n_bins] = magnitude_to_png(sqrt(re*re + im*im) / in.window, -60.0, 0.0);
+        }
     }
 
-    out.height = in.window;
+    out.height = in.window / 2 + 1;
     out.width = in.n_windows;
+
     return out;
 }
 
@@ -361,7 +372,7 @@ std::optional<Imagedata_MONO> image_read_mono(std::string fname) {
     out.height = y;
     out.data.resize(x * y);
 
-    std::copy_n(data, x * y, out.data);
+    std::copy_n(data, x * y, out.data.begin());
 
     stbi_image_free(data);
     return out;
@@ -541,6 +552,7 @@ int spectro_write(std::string fname, Spectrodata spectro);
 
 // Completed
 int image_write_mono(std::string fname, const Imagedata_MONO& image) {
+    stbi_flip_vertically_on_write(true);
     return stbi_write_png(fname.c_str(), image.width, image.height, 1, image.data.data(), image.width);
 }
 
@@ -556,6 +568,7 @@ int image_write_monoa(std::string fname, const Imagedata_MONOA& image) {
         data_to_write[2*i + 1] = alpha.data[i];
     }
 
+    stbi_flip_vertically_on_write(true);
     return stbi_write_png(fname.c_str(), value.width, value.height, 2, data_to_write.data(), 2 * value.width);
 }
 
@@ -573,6 +586,7 @@ int image_write_rgb(std::string fname, const Imagedata_RGB& image) {
         data_to_write[3*i + 2] = b.data[i];
     }
 
+    stbi_flip_vertically_on_write(true);
     return stbi_write_png(fname.c_str(), r.width, r.height, 3, data_to_write.data(), 3 * r.width);
 }
 
@@ -591,7 +605,7 @@ int image_write_rgba(std::string fname, const Imagedata_RGBA& image) {
         data_to_write[4*i + 2] = b.data[i];
         data_to_write[4*i + 3] = b.data[i];
     }
-
+    stbi_flip_vertically_on_write(true);
     return stbi_write_png(fname.c_str(), r.width, r.height, 4, data_to_write.data(), 4 * r.width);
 }
 
