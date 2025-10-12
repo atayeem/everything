@@ -46,7 +46,7 @@ int play_music(void *fname_charptr) {
         return 0;
     }
 
-    if (!SDL_PutAudioStreamData(as, buffer.data(), buffer.size() * 4)) {
+    if (!SDL_PutAudioStreamData(as, buffer.data(), buffer.size() * sizeof(float))) {
         std::cerr << "PutAudioStreamData failed: " << SDL_GetError() << "\n";
         return 0;
     }
