@@ -1,24 +1,5 @@
-/*
-Notes for a dumb bunny:
-- STOP USING std::vector::reserve()!!! It causes bad things when you then call .data()!
-  You think you're so smart by not writing a couple zeroes (0.02 ms), but then you're gonna mess it up!
-
-- fftw_malloc for fftw plans. Nothing else!
-
-- FFTW_FORWARD: n -> (n/2 + 1)
-- FFTW_REVERSE: (n/2 + 1) -> n
-
-- Remember to normalize the output. How does it work? idfk
-
-- When serializing floats you can use hexadecimal notation with libc's %a (e.g. 0xA.AB31p-1)
-
-- DUDE! The default constructor for structs deep copies vectors. Bro is copying 100MB (why is it 100MB?) for no reason!!
-  Just spam const references tbh.
-
-- TODO: fix every single confusion of N/2 + 1 and N (I hate ts!)
-*/
-
 #include "libasi.hpp"
+#include <SDL3/SDL_render.h>
 #include <algorithm>
 #include <iostream>
 
@@ -608,5 +589,9 @@ int image_write_rgba(std::string fname, const Imagedata_RGBA& image) {
     stbi_flip_vertically_on_write(true);
     return stbi_write_png(fname.c_str(), r.width, r.height, 4, data_to_write.data(), 4 * r.width);
 }
+#define LIBASI_USE_SDL
+#ifdef LIBASI_USE_SDL
+
+#endif
 
 } // namespace asi
