@@ -17,8 +17,8 @@
 #include "stb_image_write.h"
 
 // Completed
-static double* get_hanning_window(samples_t window_size) {
-    static std::unordered_map<samples_t, double*> windows;
+static double* get_hanning_window(asi::samples_t window_size) {
+    static std::unordered_map<asi::samples_t, double*> windows;
 
     auto it = windows.find(window_size);
 
