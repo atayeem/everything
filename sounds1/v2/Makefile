@@ -19,3 +19,6 @@ test_audio: test_audio.cpp
 
 app: app.cpp
 	$(CXX) $< $(shell pkg-config --cflags --libs sdl3) -o $@
+
+libwd: libwd.cpp
+	$(CXX) $< $(shell pkg-config --cflags --libs sdl3) -o $@
